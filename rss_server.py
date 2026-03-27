@@ -20,31 +20,32 @@ def rss_uret():
 
         soup = BeautifulSoup(r.text, "html.parser")
 
-        links = soup.find_all("a")
-
         rss_items = ""
         seen = set()
         count = 0
 
-        for l in links:
+        # 🔥 daha sağlam selector
+        for l in soup.select("a[href]"):
             title = l.get_text(strip=True)
             link = l.get("href")
 
-            if link and not link.startswith("http"):
+            # relative link fix
+            if link and link.startswith("/"):
                 link = "https://eksiseyler.com" + link
 
-            if title and link and "eksiseyler.com" in link and len(title) > 10:
-                if link not in seen:
-                    seen.add(link)
+            if title and link:
+                if "eksiseyler.com" in link:
+                    if link not in seen:
+                        seen.add(link)
 
-                    rss_items += f"""
+                        rss_items += f"""
 <item>
     <title>{title}</title>
     <link>{link}</link>
 </item>
 """
 
-                    count += 1
+                        count += 1
 
             if count >= 20:
                 break
@@ -64,6 +65,7 @@ def rss_uret():
 
     except Exception as e:
         print("RSS hata:", e)
+
         rss_data = """<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">
 <channel>
@@ -79,7 +81,7 @@ def home():
 
 @app.route("/rss.xml")
 def rss():
-    rss_uret()  # 🔥 HER REQUEST'TE GÜNCELLE
+    rss_uret()
     return Response(rss_data, mimetype="application/xml")
 
 
