@@ -1,9 +1,6 @@
-import time
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, Response
-import threading
-import os
 
 app = Flask(__name__)
 
@@ -14,8 +11,13 @@ def rss_uret():
 
     try:
         url = "https://eksiseyler.com/"
-        r = requests.get(url, timeout=10)
-        print(r.text[:500])
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+        }
+
+        r = requests.get(url, headers=headers, timeout=10)
+
         soup = BeautifulSoup(r.text, "html.parser")
 
         links = soup.find_all("a")
@@ -58,16 +60,17 @@ def rss_uret():
 </rss>
 """
 
-        print("RSS güncellendi")
+        print("RSS güncellendi - item sayısı:", count)
 
     except Exception as e:
-        print("Hata:", e)
-
-
-def background_loop():
-    while True:
-        rss_uret()
-        time.sleep(600)
+        print("RSS hata:", e)
+        rss_data = """<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+<title>Ekşi RSS</title>
+<description>Hata oluştu</description>
+</channel>
+</rss>"""
 
 
 @app.route("/")
@@ -76,15 +79,9 @@ def home():
 
 @app.route("/rss.xml")
 def rss():
+    rss_uret()  # 🔥 HER REQUEST'TE GÜNCELLE
     return Response(rss_data, mimetype="application/xml")
 
 
 if __name__ == "__main__":
-    rss_uret()  # 🔥 ilk açılışta doldur
-
-    t = threading.Thread(target=background_loop)
-    t.daemon = True
-    t.start()
-
-    port = int(os.environ.get("PORT", 5000))  # 🔥 Render fix
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
