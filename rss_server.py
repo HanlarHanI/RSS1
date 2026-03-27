@@ -15,6 +15,7 @@ def rss_uret():
     try:
         url = "https://eksiseyler.com/"
         r = requests.get(url, timeout=10)
+        print(r.text[:500])
         soup = BeautifulSoup(r.text, "html.parser")
 
         links = soup.find_all("a")
