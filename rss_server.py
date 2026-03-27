@@ -1,46 +1,50 @@
+from flask import Flask, Response
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, Response
+import time
 
 app = Flask(__name__)
 
-rss_data = ""
+CACHE = {
+    "time": 0,
+    "data": ""
+}
+
+CACHE_DURATION = 300  # 5 dakika
 
 def rss_uret():
-    global rss_data
+    url = "https://eksiseyler.com/"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    try:
-        url = "https://eksiseyler.com/"
+    r = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(r.text, "html.parser")
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-        }
+    links = soup.select("a[href]")
 
-        r = requests.get(url, headers=headers, timeout=10)
+    rss_items = ""
+    seen = set()
+    count = 0
 
-        soup = BeautifulSoup(r.text, "html.parser")
+    for l in links:
+        link = l.get("href")
 
-        rss_items = ""
-        seen = set()
-        count = 0
+        if not link:
+            continue
 
-        # 🔥 daha sağlam selector
-        for l in soup.select("a[href]"):
-    link = l.get("href")
+        if link.startswith("/"):
+            link = "https://eksiseyler.com" + link
 
-    if not link:
-        continue
+        if "eksiseyler.com" not in link:
+            continue
 
-    if link.startswith("/"):
-        link = "https://eksiseyler.com" + link
+        title = l.get_text(strip=True)
 
-    title = l.get_text(strip=True)
+        # boş title fix
+        if not title:
+            title = link.split("/")[-1].replace("-", " ")
 
-    # 👇 KRİTİK FIX
-    if not title:
-        title = "EkşiSeyler İçerik"
-
-    if "eksiseyler.com" in link:
         if link not in seen:
             seen.add(link)
 
@@ -50,34 +54,24 @@ def rss_uret():
     <link>{link}</link>
 </item>
 """
+
             count += 1
 
-    if count >= 20:
-        break
+        if count >= 20:
+            break
 
-        rss_data = f"""<?xml version="1.0" encoding="UTF-8" ?>
+    rss = f"""<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">
 <channel>
-<title>Ekşi RSS</title>
-<link>https://eksiseyler.com</link>
-<description>Live RSS Feed</description>
-{rss_items}
+    <title>Ekşi RSS</title>
+    <link>https://eksiseyler.com</link>
+    <description>Live RSS Feed</description>
+    {rss_items}
 </channel>
 </rss>
 """
 
-        print("RSS güncellendi - item sayısı:", count)
-
-    except Exception as e:
-        print("RSS hata:", e)
-
-        rss_data = """<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
-<channel>
-<title>Ekşi RSS</title>
-<description>Hata oluştu</description>
-</channel>
-</rss>"""
+    return rss
 
 
 @app.route("/")
@@ -86,9 +80,20 @@ def home():
 
 @app.route("/rss.xml")
 def rss():
-    rss_uret()
-    return Response(rss_data, mimetype="application/xml")
+    global CACHE
+
+    now = time.time()
+
+    # cache kontrol
+    if now - CACHE["time"] > CACHE_DURATION:
+        try:
+            CACHE["data"] = rss_uret()
+            CACHE["time"] = now
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    return Response(CACHE["data"], mimetype="application/xml")
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=8000)
