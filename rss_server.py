@@ -26,29 +26,34 @@ def rss_uret():
 
         # 🔥 daha sağlam selector
         for l in soup.select("a[href]"):
-            title = l.get_text(strip=True)
-            link = l.get("href")
+    link = l.get("href")
 
-            # relative link fix
-            if link and link.startswith("/"):
-                link = "https://eksiseyler.com" + link
+    if not link:
+        continue
 
-            if title and link:
-                if "eksiseyler.com" in link:
-                    if link not in seen:
-                        seen.add(link)
+    if link.startswith("/"):
+        link = "https://eksiseyler.com" + link
 
-                        rss_items += f"""
+    title = l.get_text(strip=True)
+
+    # 👇 KRİTİK FIX
+    if not title:
+        title = "EkşiSeyler İçerik"
+
+    if "eksiseyler.com" in link:
+        if link not in seen:
+            seen.add(link)
+
+            rss_items += f"""
 <item>
     <title>{title}</title>
     <link>{link}</link>
 </item>
 """
+            count += 1
 
-                        count += 1
-
-            if count >= 20:
-                break
+    if count >= 20:
+        break
 
         rss_data = f"""<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">
